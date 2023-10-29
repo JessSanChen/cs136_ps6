@@ -67,7 +67,7 @@ class VCG:
             
         def norm(totals):
             """Normalize total payments by the clicks in each slot"""
-            print("totals: ",totals)
+            # print("totals: ",totals)
             return [x_y[0]/x_y[1] for x_y in zip(totals, slot_clicks)]
 
         per_click_payments = norm(
