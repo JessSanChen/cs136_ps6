@@ -72,7 +72,6 @@ class VCG:
 
         per_click_payments = norm(
             [total_payment(k) for k in range(len(allocation))])
-        
         return (list(allocation), per_click_payments)
 
     @staticmethod
