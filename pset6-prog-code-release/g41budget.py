@@ -4,6 +4,10 @@ import sys
 
 from gsp import GSP
 from util import argmax_index
+from util import argmax_index, shuffled, mean, stddev
+from stats import Stats
+
+
 
 class G41budget:
     """Balanced bidding agent"""
@@ -52,6 +56,22 @@ class G41budget:
         # TODO: Fill this in
         utilities = []   # Change this
 
+        prev_round = history.round(t-1)
+        # other_bids = [a_id_b for a_id_b in prev_round.bids if a_id_b[0] != self.id]
+        clicks = prev_round.clicks
+        bids = prev_round.bids 
+
+        # print("reserve: ", reserve)
+
+        # extract bids from previous round; omit own bid; use reserve price; sort
+        bids_only = [bid for agent_id, bid in bids if agent_id != self.id]
+        bids_only.append(reserve) # append reserve price
+        bids_only = sorted(bids_only, reverse=True) # sort bids in descending order
+
+        # for each slot, calculate utilities
+        #### IS IT GUARANTEED THAT WE'RE USING THE RIGHT BID VALUES PER SLOT??
+        ## we're finding the WINNING bid, not the payment. so bids_only[j], NOT j+1
+        utilities = [clicks[j] * (self.value - bids_only[j]) for j in range(len(clicks))]
         
         return utilities
 
@@ -83,6 +103,51 @@ class G41budget:
 
         # TODO: Fill this in.
         bid = 0  # change this
+
+        clicks = prev_round.clicks
+        bids = prev_round.bids
+
+        # extract bids from previous round; omit own bid; use reserve price; sort
+        bids_only = [bid for agent_id, bid in bids if agent_id != self.id]
+        bids_only.append(reserve) # append reserve price
+        bids_only = sorted(bids_only, reverse=True) # sort bids in descending order
+
+        # price of target slot
+        price_js = bids_only[slot] #### again, NOT slot+1
+
+        # try not to bid when prices are high
+        # take average of same slot from multiple previous rounds?
+        if t > 5:
+            five_prev_rounds = [history.round(t-r-1) for r in range(5)]
+            five_bids = [prev.bids for prev in five_prev_rounds]
+            slot_bids = []
+            for prev_bids in five_bids:
+                prev_bids_only = [bid for agent_id, bid in prev_bids if agent_id != self.id]
+                prev_bids_only.append(reserve) # append reserve price
+                prev_bids_only = sorted(prev_bids_only, reverse=True) # sort bids in descending order
+                slot_bids.append(prev_bids_only[slot])
+            m = mean(slot_bids)
+            std = stddev(slot_bids)
+            if t < 44: # be budget conserving
+                if price_js > m + std:
+                    return 0
+                elif price_js < m - 1.5*std:
+                    return self.value
+            else: # bid everything
+                return self.value 
+
+        # not expecting to win
+        if price_js >= self.value: 
+            bid = self.value
+            # bid = self.value - (clicks[slot]*(self.value - price_js))/clicks[slot-1]
+        else:
+            # not going for top
+            if slot > 0:
+                bid = self.value - (clicks[slot]*(self.value - price_js))/clicks[slot-1]
+            elif slot == 0: # going for the top
+                bid = self.value
+            else:
+                return IndexError("Invalid target slot")
         
         return bid
 

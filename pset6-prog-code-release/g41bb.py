@@ -2,9 +2,11 @@
 
 import sys
 import math
+import random
 
 from gsp import GSP
 from util import argmax_index
+from vcg import VCG
 
 class G41bb:
     """Balanced bidding agent"""
@@ -38,7 +40,7 @@ class G41bb:
             return (s, min, max)
             
         info = list(map(compute, list(range(len(clicks)))))
-        sys.stdout.write("slot info: %s\n" % info)
+        # sys.stdout.write("slot info: %s\n" % info)
         return info
 
 
@@ -51,29 +53,58 @@ class G41bb:
         returns a list of utilities per slot.
         """
         # TODO: Fill this in
+        
         utilities = []   # Change this
+        slot_info_return = self.slot_info(t, history, reserve)
 
-        # u = c(v_i - b_{j+1})
-        prev_round = history.round(t-1)
-        # other_bids = [a_id_b for a_id_b in prev_round.bids if a_id_b[0] != self.id]
-        clicks = prev_round.clicks
-        bids = prev_round.bids 
+        if True:
+            # u = c(v_i - b_{j+1})
+            prev_round = history.round(t-1)
+            # other_bids = [a_id_b for a_id_b in prev_round.bids if a_id_b[0] != self.id]
+            clicks = prev_round.clicks
+            bids = prev_round.bids 
 
-        print("reserve: ", reserve)
+            # print("reserve: ", reserve)
 
-        # extract bids from previous round; omit own bid; use reserve price; sort
-        bids_only = [bid for agent_id, bid in bids if agent_id != self.id]
-        bids_only.append(reserve) # append reserve price
-        bids_only = sorted(bids_only, reverse=True) # sort bids in descending order
-        print("my id: ", self.id)
-        print("my value: ", self.value)
-        print("sorted bids: ", bids_only)
-        print("clicks: ", clicks)
+            # extract bids from previous round; omit own bid; use reserve price; sort
+            bids_only = [bid for agent_id, bid in bids if agent_id != self.id]
+            bids_only.append(reserve) # append reserve price
+            bids_only = sorted(bids_only, reverse=True) # sort bids in descending order
 
-        # for each slot, calculate utilities
-        #### IS IT GUARANTEED THAT WE'RE USING THE RIGHT BID VALUES PER SLOT??
-        ## we're finding the WINNING bid, not the payment. so bids_only[j], NOT j+1
-        utilities = [clicks[j] * (self.value - bids_only[j]) for j in range(len(clicks))]
+            # for each slot, calculate utilities
+            #### IS IT GUARANTEED THAT WE'RE USING THE RIGHT BID VALUES PER SLOT??
+            ## we're finding the WINNING bid, not the payment. so bids_only[j], NOT j+1
+            utilities = [clicks[j] * (self.value - bids_only[j]) for j in range(len(clicks))]
+
+        else: 
+            prev_round = history.round(t-1)
+            clicks = prev_round.clicks
+            bids = prev_round.bids 
+
+            # extract bids from previous round; omit own bid; use reserve price; sort
+            bids_only = [bid for agent_id, bid in bids if agent_id != self.id]
+            bids_only.append(reserve) # append reserve price
+            bids_only = list(enumerate(sorted(bids_only, reverse=True))) # sort bids in descending order
+            
+            if t < 24: # just normal BB
+                # for each slot, calculate utilities
+                utilities = [clicks[j] * (self.value - bids_only[j][1]) for j in range(len(clicks))]
+
+            else: # VCG payments
+                # return self.value
+                (allocation,per_click_payments) = VCG.compute(clicks, reserve, bids)
+                
+                print("per_click_payments len: ", len(per_click_payments))
+                print("slot_info_return len: ", len(slot_info_return))
+                print("clicks len: ", len(clicks))
+
+                for j in range(len(clicks)):
+                    # utilities.append(clicks[j] * (self.value))
+                    # if j < len(per_click_payments):
+                        utilities.append(clicks[j] * (self.value - per_click_payments[j]))
+                    # else: # assume 0 payments for those not in slots?
+                    #     utilities.append(clicks[j] * (self.value))
+
         
         return utilities
 
